@@ -8,8 +8,8 @@ const Promise = require("bluebird");
  * @param eventHandler - event handler
  * @param errorHandler - error handler
  */
-function newConsumer(config, eventHandler, errorHandler) {
-    var dataHandler = (messageSet, topic, partition) => {
+const newConsumer = (config, eventHandler, errorHandler) => {
+    const dataHandler = (messageSet, topic, partition) => {
         return Promise.all(messageSet.map(message =>
             eventHandler(JSON.parse(message.message.value.toString("utf8")))
         ))
@@ -22,17 +22,29 @@ function newConsumer(config, eventHandler, errorHandler) {
                 errorHandler(err);
             });
     };
-    var consumer = new kafka.GroupConsumer(
+
+    function generateClientID() {
+        let text = "";
+        const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+        for (let i = 0; i < 10; i++) {
+            text += possible.charAt(Math.floor(Math.random() * possible.length));
+        }
+        return text;
+    }
+
+    let consumer = new kafka.GroupConsumer(
         {
             connectionString: config.kafka.hosts.join(","),
             groupId: config["consumer-group"],
-            clientId: config.kafka["client-id"]
+            clientId: generateClientID()
         }
     );
-    var strategies = [{
+    const strategies = [{
         subscriptions: [config.kafka.topic],
         handler: dataHandler
     }];
     return consumer.init(strategies);
-}
+};
+
 module.exports = newConsumer;
