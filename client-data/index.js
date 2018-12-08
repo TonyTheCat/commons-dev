@@ -284,8 +284,8 @@ function newClient(url) {
                         return Promise.all(promises);
                     });
                 });
-                return Promise.all(objects).then(() => object);
             }
+            return Promise.all(objects).then(() => object);
         }
     };
 }
