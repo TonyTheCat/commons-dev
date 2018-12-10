@@ -212,9 +212,9 @@ function newClient(url) {
             // array of objects which need expand
             let objects = [];
             if (object.results && object.count) {
-                objects = object.results;
+                objects = object;
             } else {
-                objects = [object];
+                objects = object;
             }
 
             // "field or edge" -> "next level expand"
@@ -255,8 +255,8 @@ function newClient(url) {
             });
 
             // apply expandMap to objects
-            if (objects[0].results.length) {
-                objects = objects.map(obj => {
+            if (objects.results.length) {
+                objects = objects.results.map(obj => {
                     return this.getGraphConfig().then(config => {
                         let objCfg = config[obj.object_type]; // object config
                         let promises = [];
@@ -284,6 +284,9 @@ function newClient(url) {
                         return Promise.all(promises);
                     });
                 });
+            }
+            if (object.count === 0) {
+                objects = [objects];
             }
             return Promise.all(objects).then(() => object);
         }
