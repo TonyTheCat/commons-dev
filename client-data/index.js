@@ -211,12 +211,11 @@ function newClient(url) {
         expand: function (object, expand) {
             // array of objects which need expand
             let objects = [];
-            if (object.results && object.count) {
-                objects = object;
+            if (object.results || object.results === []) {
+                objects = object.results;
             } else {
-                objects = object;
+                objects.push(object);
             }
-
             // "field or edge" -> "next level expand"
             let expandMap = {};
             let curly = 0; // count of curly brackets
@@ -255,8 +254,8 @@ function newClient(url) {
             });
 
             // apply expandMap to objects
-            if (objects.results.length) {
-                objects = objects.results.map(obj => {
+            if (objects && objects.length) {
+                objects = objects.map(obj => {
                     return this.getGraphConfig().then(config => {
                         let objCfg = config[obj.object_type]; // object config
                         let promises = [];
@@ -284,9 +283,6 @@ function newClient(url) {
                         return Promise.all(promises);
                     });
                 });
-            }
-            if (object.count === 0) {
-                objects = [objects];
             }
             return Promise.all(objects).then(() => object);
         }
