@@ -168,7 +168,7 @@ class Searcher {
             // Fix default sort by id for npi search
             if (options.object === "npi_location" || options.object === "npi_entity") {
                 request.sort.splice(request.sort.findIndex(el => el.hasOwnProperty('id')));
-                request.sort.push({npi: "asc"});
+                request.sort.push({npi_sort: "asc"});
             }
             return this.elastic.search({
                 index: options.object,
