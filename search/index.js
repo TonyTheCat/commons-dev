@@ -21,8 +21,8 @@ class Searcher {
                 val = val[0];
             }
 
-            if (val === "-") {
-                filters.push({ missing: { field: key } });
+            if (val === "exists") {
+                filters.push({ exists: { field: key } });
             } else if (dateRegExp.test(val)) {
                 filters.push({
                     range: {
@@ -145,12 +145,6 @@ class Searcher {
         let query = Promise.resolve();
         if (options.after) {
             let request = this.createRequest(options);
-            // request.query.bool = request.query.bool || {};
-            // request.query.bool.filter = {
-            //     term: {
-            //         id: options.after
-            //     }
-            // };
             query = this.elastic.search({
                 index: options.object,
                 type: options.object,
@@ -166,6 +160,10 @@ class Searcher {
         return query.then(searchAfter => {
             let request = this.createRequest(options);
             // Fix default sort by id for npi search
+            if (options.object === "log_line") {
+                request.sort.splice(request.sort.findIndex(el => el.hasOwnProperty('id')));
+                request.sort.push({timestamp: "desc"});
+            }
             if (options.object === "npi_location" || options.object === "npi_entity") {
                 request.sort.splice(request.sort.findIndex(el => el.hasOwnProperty('id')));
                 request.sort.push({npi_sort: "asc"});
@@ -178,6 +176,14 @@ class Searcher {
         }).then(body => {
             // Fix for npi search
             if (options.object === "npi_location" || options.object === "npi_entity") {
+                let res = {
+                    results: body.hits.hits.map(doc => doc._source),
+                    count: body.hits.total
+                };
+                return res;
+            }
+
+            if (options.object === "log_line") {
                 let res = {
                     results: body.hits.hits.map(doc => doc._source),
                     count: body.hits.total
