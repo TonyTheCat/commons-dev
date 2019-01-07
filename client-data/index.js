@@ -109,7 +109,6 @@ function newClient(url) {
          * Get objects
          */
         getObjects: function (ids, options) {
-            ids = Array.from(arguments);
             if (typeof ids.slice(-1)[0] === "object") {
                 options = ids.slice(-1)[0];
                 ids = ids.slice(0, -1);
