@@ -10,48 +10,44 @@ class Searcher {
     constructor(config) {
         this.elastic = new elasticsearch.Client(config);
     }
-
+    parseFilter(filters) {
+        if (!(Object.keys(filters)).includes("AND") && !(Object.keys(filters)).includes("OR")) {
+            return this.parseFiltersFromService(filters);
+        }
+        const res = { bool: {} };
+        Object.keys(filters).map(item => {
+            let operator;
+            if (item === "AND") operator = "must";
+            else if (item === "OR") operator = "should";
+            res.bool[operator] = [];
+            Object.keys(filters[item]).map(key => {
+                if (key === "AND" || key === "OR") {
+                    const resSub = this.parseFilter({ [key]: filters[item][key] });
+                    res.bool[operator].push(resSub);
+                    return;
+                }
+                if (filters[item][key][0] === "!") res.bool[operator].push({ bool: { must_not: { exists: { field: key } } } });
+                else if (filters[item][key][0] === "") res.bool[operator].push({ exists: { field: key } });
+                else filters[item][key].map(item => { res.bool[operator].push({ term: { [key]: item } }) });
+            });
+        });
+        return res;
+    }
+    parseFiltersFromService(filters) {
+        const res = { bool: { must: [] } };
+        for (const field of Object.keys(filters)) {
+            if (filters[field] === "!") res.bool.must.push({ bool: { must_not: { exists: { field: field } } } });
+            else if (filters[field] === "") res.bool.must.push({ exists: { field: field } });
+            else res.bool.must.push({ term: { [field]: filters[field] } });
+        }
+        return res;
+    }
     createRequest(options) {
         let filters = [];
-        let notFilters = [];
-        let filedExists;
-        Object.keys(options.filters || {}).forEach(key => {
-            let val = options.filters[key];
-            if (val.length === 1) {
-                val = val[0];
-            }
 
-            if (val === "exists") {
-                filters.push({ exists: { field: key } });
-            } else if (dateRegExp.test(val)) {
-                filters.push({
-                    range: {
-                        [key]: {
-                            gte: val,
-                            lt: val + "||+1d"
-                        }
-                    }
-                });
-            } else {
-                if (!Array.isArray(val)) {
-                    val = [val];
-                }
-
-                let eqVals = val.filter(val => !val.startsWith("!"));
-                if (eqVals && eqVals.length) {
-                    filters.push({ terms: { [key]: eqVals } });
-                }
-
-                let notEqVals;
-                if (val[0] === "!") {
-                    filedExists = key;
-                }
-                notEqVals = val.filter(val => val.startsWith("!")).map(val => val.slice(1));
-                if (notEqVals && notEqVals.length) {
-                    notFilters.push({ terms: { [key]: notEqVals } });
-                }
-            }
-        });
+        if (options.filters) {
+            filters = this.parseFilter(options.filters);
+        }
 
         let range = {};
         Object.keys(options.range || {}).forEach(key => {
@@ -63,22 +59,16 @@ class Searcher {
                 range[key].lte = options.range[key].lte;
             }
         });
-
+        const filterRange = [];
         if (Object.keys(range).length) {
-            filters.push({
-                range: range
-            });
+            filterRange.push({ range: range });
         }
         let query;
 
         if ((options.object === "laboratory_reqs" || options.object === "distributor_reqs") && options.group_by) {
             query = {
-                query: {
-
-                },
-                aggs: {
-
-                }
+                query: {},
+                aggs: {}
             };
 
             query.aggs[options.object] = {
@@ -88,12 +78,8 @@ class Searcher {
             };
         } else if ((options.object === "laboratory_reqs" || options.object === "distributor_reqs") && options.func === "sum" && !options.group_by) {
             query = {
-                query: {
-
-                },
-                aggs: {
-
-                }
+                query: {},
+                aggs: {}
             };
 
             query.aggs[options.object] = {
@@ -103,12 +89,8 @@ class Searcher {
             };
         } else if ((options.object === "laboratory_reqs" || options.object === "distributor_reqs") && options.func === "average" && !options.group_by) {
             query = {
-                query: {
-
-                },
-                aggs: {
-
-                }
+                query: {},
+                aggs: {}
             };
 
             query.aggs[options.object] = {
@@ -116,7 +98,6 @@ class Searcher {
                     field: "tat"
                 }
             };
-
         } else {
             query = { query: {} };
         }
@@ -147,27 +128,6 @@ class Searcher {
             };
         }
 
-        if (filters.length || notFilters.length || filedExists) {
-            query.query.bool = query.query.bool || {};
-            if (filters.length) {
-                query.query.bool.filter = filters;
-            }
-            if (notFilters.length) {
-                query.query.bool.must_not = notFilters;
-            }
-
-            if (!notFilters.length && filedExists) {
-                query.query.bool.must_not = [{ exists: { field: filedExists } }];
-            }
-            if (notFilters.length && filedExists) {
-                query.query.bool.must_not.push({ exists: { field: filedExists } });
-            }
-        }
-
-        if (!filters.length && !notFilters.length && !options.q) {
-            query.query.match_all = {};
-        }
-
         if (options.count) {
             query.size = options.count;
         }
@@ -185,8 +145,19 @@ class Searcher {
                 query.sort.push({ [sortField]: sort.toUpperCase().endsWith("(DESC)") ? "desc" : "asc" });
             });
         }
-        query.sort.push({ id: "asc" })
-
+        query.sort.push({ id: "asc" });
+        if (query.query.bool && query.query.bool.must) {
+            if (filters.bool.must) {
+                filters.bool.must.push(query.query.bool.must);
+                query.query.bool = filters.bool;
+            } else {
+                const query_string = query.query.bool.must;
+                query.query.bool.must = [query_string, { bool: filters.bool }];
+            }
+        } else {
+            query.query.bool = filters.bool;
+        }
+        query.query.bool.filter = filterRange;
         return query;
     }
 
@@ -228,15 +199,20 @@ class Searcher {
             });
         }).then(body => {
             // Fix for npi search
-            if (options.object === "npi_location" || options.object === "npi_entity" || options.object === "log_line" ||
-                options.object === "laboratory_reqs" || options.object === "distributor_reqs") {
+            if (options.object === "laboratory_reqs" || options.object === "distributor_reqs") {
                 let res = {
                     results: body.hits.hits.map(doc => doc._source),
                     count: body.hits.total,
-                    aggregations: body.aggregations ? body.aggregations : "",
-                    options: options ? options : "",
-                    query: query ? query : "",
-                    body: body ? body : ""
+                    aggregations: body.aggregations ? body.aggregations : ""
+
+                };
+                return res;
+            }
+            if (options.object === "npi_location" || options.object === "npi_entity" || options.object === "log_line") {
+                let res = {
+                    results: body.hits.hits.map(doc => doc._source),
+                    count: body.hits.total
+
                 };
                 return res;
             }
@@ -250,7 +226,6 @@ class Searcher {
                 res.last = body.hits.hits.slice(-1)[0]._source.id;
             }
             return res;
-
         });
     }
 }
