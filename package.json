@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "main": "index.js",
   "dependencies": {
+    "collections": "^5.1.8",
     "elasticsearch": "^12.0.1",
     "no-kafka": "^3.0.1",
     "request": "^2.78.0",

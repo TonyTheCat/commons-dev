@@ -1,7 +1,7 @@
 "use strict";
 
 const rethinkdb = require("rethinkdbdash");
-const SortedSet = require("sorted-set");
+// const SortedSet = require("sorted-set");
 
 /**
  * @param config - rethinkdb config
@@ -24,15 +24,15 @@ function newConsumer(config, eventHandler, errorHandler) {
             .then(() => r.table(eventOffsetTable).get(consumerGroup).update({offset: event.id}).run());
     }
 
-    let queue = new SortedSet({
-        unique: true,
-        hash: function(item) {
-            return item.id;
-        },
-        compare: function(a, b) {
-            return a[eventsSortField] - b[eventsSortField];
-        }
-    });
+    // let queue = new SortedSet({
+    //     unique: true,
+    //     hash: function(item) {
+    //         return item.id;
+    //     },
+    //     compare: function(a, b) {
+    //         return a[eventsSortField] - b[eventsSortField];
+    //     }
+    // });
 
     /**
      * Select last processed EventOffset object for specified service name
