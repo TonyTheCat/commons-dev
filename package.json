@@ -3,13 +3,11 @@
   "version": "0.1.0",
   "main": "index.js",
   "dependencies": {
-    "collections": "^5.1.8",
     "elasticsearch": "^12.0.1",
     "no-kafka": "^3.0.1",
     "request": "^2.78.0",
     "restify": "^4.1.1",
     "rethinkdbdash": "^2.3.23",
-    "sorted-set": "^0.3.0",
     "yargs": "^6.3.0"
   },
   "devDependencies": {
