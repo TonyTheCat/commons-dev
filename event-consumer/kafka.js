@@ -9,7 +9,7 @@ const kafka = require("no-kafka");
 const handler = (eventHandler, errorHandler, consumer) => async (messageSet, topic, partition) => {
     try {
         for (const message of messageSet) {
-            await eventHandler(message.message.value.toString("utf8"))
+            await eventHandler(JSON.parse(message.message.value.toString("utf8")))
             await consumer.commitOffset({
                 topic,
                 partition,
