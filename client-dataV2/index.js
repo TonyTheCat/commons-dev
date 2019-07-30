@@ -2,12 +2,15 @@
 
 const restify = require("restify");
 
-function newClient(url) {module.exports = newClient;
+function newClient(url, mode) {
 
     let client = restify.createJsonClient({
         url,
         version: "*"
     });
+    let ignoreErrors;
+
+    if (mode && mode.ignoreCD) ignoreErrors = mode.ignoreCD;
     // Time in ms
     const startTimeout = 5;
     const deltaInterval = 20;
