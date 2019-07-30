@@ -57,6 +57,10 @@ function newClient(url) {module.exports = newClient;
                 err = e;
                 if (!objErr.err) objErr.err = { err: e, message: e.message, code: e.code }
                 if (!e.message.includes("Gateway")) break;
+                if(ignoreErrors && method !== "GET") {
+                    if ((e.body && e.body.code === "EdgeNotExists") || e.message.includes("EdgeNotExists")) return res;
+                    if ((e.body && e.body.code === "EdgeAlreadyExists") || e.message.includes("EdgeAlreadyExists")) return res;
+                }
                 await timeout(i);
                 waitTime += i;
                 continue;
