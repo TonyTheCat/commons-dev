@@ -1,4 +1,4 @@
-const kafka = require("no-kafka");
+const {Kafka} = require("kafkajs");
 
 /**
  * @param config - kafka config
@@ -6,45 +6,33 @@ const kafka = require("no-kafka");
  * @param errorHandler - error handler
  */
 
-const handler = (eventHandler, errorHandler, consumer) => async (messageSet, topic, partition) => {
-    try {
-        for (const message of messageSet) {
-            await eventHandler(JSON.parse(message.message.value.toString("utf8")))
-            await consumer.commitOffset({
-                topic,
-                partition,
-                offset: message.offset,
-                metadata: "optional"
-            });
-        }
-    } catch (e) {
-        errorHandler(e, consumer);
-    }
-};
-
-const generateClientID =() => {
-    let text = "";
-    const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-
-    for (let i = 0; i < 10; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
-};
-
 const newConsumer = async (config, eventHandler, errorHandler) => {
-    const consumer = new kafka.GroupConsumer(
-        {
-            connectionString: config.kafka.hosts.join(","),
-            groupId: config["consumer-group"],
-            clientId: generateClientID()
+    const kafka = new Kafka({
+        clientId: config.kafka["client-id"],
+        brokers: config.kafka.hosts
+    });
+
+    const consumer = kafka.consumer({groupId: config["consumer-group"]});
+    await consumer.connect();
+    await consumer.subscribe({topic: config.kafka.topic, fromBeginning: false});
+
+    await consumer.run({
+        eachBatchAutoResolve: false,
+        eachBatch: async ({batch, resolveOffset, heartbeat, isRunning, isStale}) => {
+            for (const message of batch.messages) {
+                if (!isRunning() || isStale()) {
+                    break;
+                }
+                try {
+                    await eventHandler(JSON.parse(message.value.toString("utf8")));
+                    await resolveOffset(message.offset);
+                    await heartbeat();
+                } catch (e) {
+                    errorHandler(e, consumer);
+                }
+            }
         }
-    );
-    const strategies = [{
-        subscriptions: [config.kafka.topic],
-        handler: handler(eventHandler, errorHandler, consumer)
-    }];
-    return consumer.init(strategies);
+    });
 };
 
 module.exports = newConsumer;
