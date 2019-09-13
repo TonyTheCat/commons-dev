@@ -9,7 +9,12 @@ const {Kafka} = require("kafkajs");
 const newConsumer = async (config, eventHandler, errorHandler) => {
     const kafka = new Kafka({
         clientId: config.kafka["client-id"],
-        brokers: config.kafka.hosts
+        brokers: config.kafka.hosts,
+        retry: {
+            initialRetryTime: 1000,
+            retries: 20,
+            multiplier: 1.2
+        }
     });
 
     const consumer = kafka.consumer({groupId: config["consumer-group"]});
