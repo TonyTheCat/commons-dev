@@ -11,7 +11,7 @@
     "yargs": "^6.3.0"
   },
   "devDependencies": {
-    "eslint": "^3.8.1",
+    "eslint": "^6.6.0",
     "eslint-config-xo": "^0.17.0"
   },
   "scripts": {
